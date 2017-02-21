@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Sunreport</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+
+    <link href="css/ionic.app.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <link href="lib/ionic-ion-drawer/ionic.contrib.drawer.css" rel="stylesheet">
+
+    <script src="lib/ionic/js/ionic.bundle.js"></script>
+    <script src="lib/angular-mocks/angular-mocks.js"></script>
+    <script src="lib/jquery/dist/jquery.js"></script>
+    <script src="js/flot-master/jquery.flot.js"></script>
+    <script src="lib/jquery.easy-pie-chart/dist/angular.easypiechart.js"></script>
+    <script src="lib/ionic-ion-drawer/ionic.contrib.drawer.js"></script>
+    <script src="lib/ionic/js/angular/angular-resource.js"></script>
+    <script src="js/http-mocks.js"></script>
+    <script src="js/services.js"></script>
+    <script src="js/controllers.js"></script>
+    <script src="js/directives.js"></script>
+    <script src="js/security.js"></script>
+    <script src="js/filters.js"></script>
+    <script src="js/app.js"></script>
+    <!-- Needed for Cordova/PhoneGap (will be a 404 during development) -->
+    <script src="cordova.js"></script>
+  </head>
+  <body ng-app="myApp">
+ 
+      <ion-nav-view>
+      </ion-nav-view>
+
+
+    <!--Login Template -->
+    <script id="templates/login.html" type="text/ng-template">
+    <ion-view view-title="Login" hide-nav-bar="false">
+        <ion-content class="login">
+          <div class="">
+            <img class="logo" src="img/logo_200px.png"></img>
+            <form class="list" role="form" novalidate>
+              <h1>Login</h1>
+              <label class="item-input item-stacked-label">
+                <i class="icon ion-email "></i>
+                <span class="input-label ">Indirizzo email</span>
+                <input data-ng-model="login.userid" type="email" class="form-control text-green" placeholder="Indirizzo email" required />
+              </label>
+              <label class="item-input item-stacked-label">
+                <i class="icon ion-key"></i>
+                <span class="input-label">Password</span>            
+                <input data-ng-model="login.password" type="password" class="form-control text-green" placeholder="Password" required />  
+              </label>
+              <input data-ng-model="login.type" type="hidden" name="lname" ng-init="login.type=userTypes.CUSTOMER">
+              <div class="padding-side"><button ng-click="login.send()" class="button button-full button-balanced material-button" type="submit"><span translate>Accedi</span></button></div>
+            </form>
+            <div ng-show="loginFailed" class="alert alert-danger" translate>Nome utente o password inesistenti</div>
+          </div>
+        </ion-content>
+      </ion-view>
+    </script>
+
+    <!-- Side Menu Wrapper Template -->
+    <script id="templates/main.html" type="text/ng-template">
+ 
+          <!-- Contenuto centrale -->
+        <drawer class="drawer" side="left" >
+          <ion-content class="no-header">
+            <ion-list>
+              <div class="menu-header">
+              <i class="icon ion-android-contact"></i><div class="menu-username">{{userName}}</div></div>
+              <ion-item ui-sref="home" ui-sref-active="current" class="menu-item item-icon-left">    
+                <i class="icon ion-home"></i>
+                Home
+              </ion-item>
+              <ion-item ui-sref="home" class="menu-item item-icon-left"><i class="icon ion-clipboard"></i>Ordini</ion-item>
+              <ion-item ui-sref="home" class="menu-item item-icon-left" ><i class="icon ion-stats-bars"></i>Reports</ion-item>
+              <ion-item ui-sref="home" class="menu-item item-icon-left"><i class="icon ion-nuclear"></i>Prodotti</ion-item>
+              <div class="divider"></div>
+              <ion-item logout ui-sref="login" class="item menu-item item-icon-left"><i class="icon ion-power"></i><span>Logout</span></ion-item>
+            </ion-list>
+          </ion-content>
+        </drawer>
+              
+           <!-- <ion-nav-buttons side="right">
+
+              <button class="button button-icon button-clear ion-navicon-round" ng-click="openDrawer()"></button>
+              <button class="button button-clear button-icon ion-android-search"></button>
+            </ion-nav-buttons>    -->                   
+
+      <ion-nav-view name="mainContent">
+
+      </ion-nav-view>   
+
+   
+    </script>
+
+
+    <!-- Summary Template -->
+    <script id="templates/summary.html" type="text/ng-template">  
+ 
+      <ion-view cache-view="false" hide-back-button="false" view-title="Lista Impianti">
+        <div class="bar bar-header bar-balanced">
+          <button ng-click="openDrawer()" class="button button-clear button-icon icon ion-navicon"></button>
+          <h1 class="title">Lista impianti</h1>
+          <search></search>
+        </div>  
+
+        <ion-content class="has-header">
+          <ion-list>
+            <div class="item summary" ng-init="$last && hideLoading() " ng-repeat="item in filteredSummaryList | orderBy:predicate:reverse | limitTo:limit track by item.id" new-row data-data="item"></div>
+          </ion-list>
+          <ion-infinite-scroll
+            on-infinite="loadItems()"
+            distance="20%">
+          </ion-infinite-scroll>          
+        </ion-content>
+      </ion-view>
+    </script>
+
+    <!-- SinglePlant Template -->
+    <script id="templates/single.html" type="text/ng-template">
+      <ion-view cache-view="false" hide-back-button="false" view-title="Panoramica Impianto">
+              <div class="bar bar-header bar-balanced">
+              <button ng-click="goBack()" class="button button-clear button-icon icon ion-android-arrow-back"></button>
+              <h1 class="title">Panoramica impianto</h1></div>  
+
+        <ion-content class="has-header">
+
+<!-- start content -->
+<div
+  class="main home-single">
+
+  <!--
+    <div class="item padding bg-color-primary">
+      <span class=""></span> <h2 translate>Produzione di energia</h2>
+          <p ng-show="showStation && !satellite"
+        class="stazione pull-right"
+        title="{{'La stima di produzione è elaborata con i dati di radiazione al suolo che provengono dalla stazione meteo'}} {{stazione}}"><span translate>Stazione meteo</span> {{stazione}} ({{distance | number:0}} km)</p>
+        
+        <p ng-show="showStation && satellite"
+        class="stazione pull-right"
+        title="{{'La stima di produzione è elaborata con i dati di radiazione derivati dalle misure rilevate da satellite e integrate da Sunmeteo&copy;'}}" translate>Fonte radiazione: satellite / elaborazione Sunmeteo <sup>&copy;</sup></p>
+        
+    </div>
+    <div class="panel-body">
+      <div data-tt-home-chart anno="year" energy="energia"
+        config="settingsChart" style="width: 100%"></div>
+    </div>
+  </div>
+     -->
+  <!-- stats -->
+  
+  <div class="single-stats">
+    <div class="pies">
+      
+        <div ng-show="showMonthPie" data-chart-energy-month energy="energia"
+          config="settingsPie" class="card"></div>
+      
+        <div ng-show="showYearPie" data-chart-energy-year energy="energia"
+          config="settingsPie" class="card"></div>
+     
+    </div>
+    <div class="energy" ng-class="">
+      <div data-widget-energy-year energy="energia" class="card padding widget-icon ">
+        <div class="efficiency">
+            <h3><i class="icon ion-battery-half"></i>Efficienza</h3>
+              <div class="progress">
+                <span class="caption-small">kWh/kPh</span>
+                <div class="progress-bar-outer">
+                  <div  class="progress-bar progress-bar" role="progressbar" ng-style="energia.barStyle">
+                    <span class="summary-value">{{energia.efficiency_last_year.estimated * 100 | number:0}}%</span>
+                  </div>
+                </div>      
+              </div>
+              <div ng-show="" class="hours">
+                <span class="caption-small">Ore</span>
+                <span class="summary-value">{{ore | number:0}}</span>
+              </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="revenue card padding widget-icon" ng-class="">
+    <div data-widget-revenue data-data="plant" >
+    </div>   
+  </div>
+  <!-- end stats -->
+  
+  <div class="card">
+    <div class="item item-divider">
+      <span class="glyphicon glyphicon-th"></span> <h3 translate>Impianto</h3>
+    </div>
+    <div class="panel-body">
+        <div class="item">
+          <ul class="">
+            <li class=""><span translate>Potenza:</span> {{stato.potenza_nominale}} kW</li>
+            <li class=""><span translate>Produzione attesa:</span> {{stato.producibilita_attesa}} kWh</li>
+            <li class=""><span translate>Incentivo:</span> <i><span data-format="roman">{{plant.conto_energia}}</span><sup translate-context="th" translate>o</sup> <span translate>conto energia</span></i></li>
+          </ul>
+        </div>
+        <div class="item">
+          <ul class="">
+            <li class=""><span translate>Data di avvio:</span> {{stato.dta_entrata_esercizio}}</li>
+            <li class=""><span>POD: {{stato.codice_presa}}</span></li>
+            <li class=""><span>CENSIMP: {{stato.censimp}}</span></li>
+          </ul>
+        </div>
+        <div class="item">
+          <ul ng-show="strutture === undefined" class="list-group">
+            <li class="list-group-item"><div class="alert alert-danger" translate>Nessun orientamento e inclinazione definiti, <a href="#/report/plant-user-settings/{{plant.id}}">occorre inserirli.</a></div></li>
+          </ul>
+          <ul ng-show="strutture !== undefined" class="list-group">
+            <li ng-repeat="struttura in strutture" class="list-group-item">
+              <ul>
+
+              <li ng-show="getStrutturaBase($index) !== undefined" title="default: {{getStrutturaBase($index).inclinazione}}°" translate><span>Inclinazione:</span> {{struttura.inclinazione}}°</li>
+
+              <li ng-show="getStrutturaBase($index) !== undefined" title="default: {{getStrutturaBase($index).orientamento}}°" translate><span>Orientamento:</span> {{struttura.orientamento}}°, {{struttura.tipo}}</li>
+
+              <li ng-show="getStrutturaBase($index) === undefined" title="{{'default: Nessuna inclinazione definita dal progettista'}}" translate><span>Inclinazione:</span> <{{struttura.inclinazione}}°,</li> 
+              <li ng-show="getStrutturaBase($index) === undefined" title="{{'default: Nessun orientamento definito dal progettista'}}" translate><span>Orientamento:</span> {{struttura.orientamento}}°, {{struttura.tipo}}</li>  
+
+              </ul>          
+            </li>
+          </ul>
+          <ul class="list-group">
+            <li ng-show="tipo != undefined" class="list-group-item"><span translate>Tipo:</span> {{tipo}}</li>
+          </ul>
+        </div>
+        <div class="item">
+          <ul class="list-group">
+            <li ng-repeat="convertitore in convertitori"
+              class="list-group-item" translate><span>Inverter:</span> {{convertitore.marca}} - {{convertitore.modello}}</li>
+            <li ng-repeat="modulo in moduli" class="list-group-item"><span translate>Moduli:</span>
+              {{modulo.marca}} - {{modulo.modello}} -
+              {{modulo.caratteristiche}}, <span translate>potenza:</span> {{modulo.potenza}} W, n°:
+              {{modulo.numero_moduli}}</li>
+          </ul>
+        </div>
+    </div>
+  </div>
+    
+    <div class="panel-body">
+      <div class="">
+        <div class="col-sm-9">
+          <p ng-repeat="month in noMeasureMonths">
+            <span translate>Nessuna misura fornita dal GSE del mese di</span> {{month | date:'MMMM yyyy'}}. <span translate>Verificare.</span> <a href="https://www.sunreport.it/misure-gse-mancanti/" target="_blank"><span translate>Leggi cosa è.</span></a> <span translate>Viene visualizzata una <a href="https://www.sunreport.it/misure-gse-mancanti/" target="_blank">stima</a> di Sunreport</span>
+          </p>  
+        </div>
+      </div>
+    </div>
+    <div class="overview-buttons padding">
+      <button ui-sref="main.produzione({id:plant.id})"" class="button button-balanced material-button button-block icon-right ion-chevron-right"><i class="icon ion-flash"></i>Produzione</button>
+      <button class="button button-balanced material-button button-block icon-right ion-chevron-right"><i class="icon ion-cash"></i>Ricavi e Incentivi</button>
+      <button class="button button-balanced material-button button-block icon-right ion-chevron-right"><i class="icon ion-stats-bars"></i>Grafici</button>
+
+    </div>
+  </div>
+
+        </ion-content>
+      </ion-view>
+      </script>
+
+      <!-- Produzione template -->
+      <script id="templates/produzione.html" type="text/ng-template">
+        <ion-view>
+          <div class="bar bar-header bar-balanced">
+            <button ng-click="goBack()" class="button button-clear button-icon icon ion-android-arrow-back"></button>
+            <h1 class="title">Produzione</h1>
+          </div>  
+          <div class="bar bar-subheader bar-balanced">
+              <button class="button button-clear button-icon" ng-click="prevYear()""><i class="icon ion-arrow-left-b"></i></button>
+              <h1 class="title">{{yearS}}</h1>
+              <button class="button button-clear button-icon" ng-click="nextYear()""><i class="icon ion-arrow-right-b"></i></button>
+          </div>
+          <ion-content class="has-header has-subheader">
+            <div class="energy-section">
+              <!--<h1 class="page-header" style="margin-top:26px;" translate>Produzione</h1>-->
+
+              <div class="">
+                <div data-energy-table energy="energia" data-year-selected="yearS" config="settingsTable" ></div>
+              </div>
+
+            </div>
+          </ion-content>
+        </ion-view>
+      </script>
+  </body>
+</html>
